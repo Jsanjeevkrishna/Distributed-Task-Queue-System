@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Task Queue System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .task-card {
+            transition: all 0.3s ease;
+        }
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+        .worker-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .worker-active {
+            background-color: #10B981;
+            box-shadow: 0 0 5px #10B981;
+        }
+        .worker-idle {
+            background-color: #F59E0B;
+        }
+        .worker-offline {
+            background-color: #EF4444;
+        }
+        .queue-item {
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .queue-item:hover {
+            background-color: #F3F4F6;
+        }
+        .queue-pending {
+            border-left-color: #F59E0B;
+        }
+        .queue-processing {
+            border-left-color: #3B82F6;
+        }
+        .queue-completed {
+            border-left-color: #10B981;
+        }
+        .queue-failed {
+            border-left-color: #EF4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-tasks text-blue-500 text-2xl mr-3"></i>
+                    <h1 class="text-xl font-bold text-gray-800">Distributed Task Queue</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" placeholder="Search tasks..." class="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-plus mr-2"></i> New Task
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6 task-card">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Pending Tasks</p>
+                            <p class="text-3xl font-bold text-yellow-500 mt-1">24</p>
+                        </div>
+                        <div class="bg-yellow-100 p-3 rounded-full">
+                            <i class="fas fa-clock text-yellow-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>+5 today</span>
+                            <span>12.5%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 45%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6 task-card">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Processing Tasks</p>
+                            <p class="text-3xl font-bold text-blue-500 mt-1">18</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <i class="fas fa-cog text-blue-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>+3 today</span>
+                            <span>8.2%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: 32%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6 task-card">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Completed Tasks</p>
+                            <p class="text-3xl font-bold text-green-500 mt-1">156</p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>+42 today</span>
+                            <span>26.8%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 78%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6 task-card">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Failed Tasks</p>
+                            <p class="text-3xl font-bold text-red-500 mt-1">7</p>
+                        </div>
+                        <div class="bg-red-100 p-3 rounded-full">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>+1 today</span>
+                            <span>3.2%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div class="bg-red-500 h-2 rounded-full" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Workers Status -->
+                <div class="bg-white rounded-lg shadow p-6 lg:col-span-1">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Worker Nodes</h2>
+                        <span class="text-sm text-gray-500">5 active</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <span class="worker-status worker-active"></span>
+                                <div>
+                                    <p class="font-medium">worker-1</p>
+                                    <p class="text-xs text-gray-500">Processing: task-2456</p>
+                                </div>
+                            </div>
+                            <span class="text-sm text-green-500">Active</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <span class="worker-status worker-active"></span>
+                                <div>
+                                    <p class="font-medium">worker-2</p>
+                                    <p class="text-xs text-gray-500">Processing: task-2457</p>
+                                </div>
+                            </div>
+                            <span class="text-sm text-green-500">Active</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <span class="worker-status worker-idle"></span>
+                                <div>
+                                    <p class="font-medium">worker-3</p>
+                                    <p class="text-xs text-gray-500">Idle</p>
+                                </div>
+                            </div>
+                            <span class="text-sm text-yellow-500">Idle</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <span class="worker-status worker-active"></span>
+                                <div>
+                                    <p class="font-medium">worker-4</p>
+                                    <p class="text-xs text-gray-500">Processing: task-2458</p>
+                                </div>
+                            </div>
+                            <span class="text-sm text-green-500">Active</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <span class="worker-status worker-offline"></span>
+                                <div>
+                                    <p class="font-medium">worker-5</p>
+                                    <p class="text-xs text-gray-500">Offline</p>
+                                </div>
+                            </div>
+                            <span class="text-sm text-red-500">Offline</span>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-plus mr-2"></i> Add Worker
+                    </button>
+                </div>
+
+                <!-- Task Queue -->
+                <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Task Queue</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 text-sm bg-blue-100 text-blue-600 rounded-full">All</button>
+                            <button class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Pending</button>
+                            <button class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Processing</button>
+                            <button class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Completed</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task ID</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#2456</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Data Processing Job</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Processing</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2 mins ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-eye"></i></button>
+                                        <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#2455</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Report Generation</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">15 mins ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-eye"></i></button>
+                                        <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#2454</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Image Processing</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1 hour ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-eye"></i></button>
+                                        <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#2453</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">API Synchronization</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2 hours ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-eye"></i></button>
+                                        <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#2452</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Database Backup</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">3 hours ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-eye"></i></button>
+                                        <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <span class="text-sm text-gray-500">Showing 1 to 5 of 205 tasks</span>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 rounded-md bg-gray-200 text-gray-700"><i class="fas fa-chevron-left"></i></button>
+                            <button class="px-3 py-1 rounded-md bg-blue-500 text-white">1</button>
+                            <button class="px-3 py-1 rounded-md bg-gray-200 text-gray-700">2</button>
+                            <button class="px-3 py-1 rounded-md bg-gray-200 text-gray-700">3</button>
+                            <button class="px-3 py-1 rounded-md bg-gray-200 text-gray-700"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Task Distribution</h2>
+                        <select class="border rounded-md px-3 py-1 text-sm">
+                            <option>Last 7 days</option>
+                            <option>Last 30 days</option>
+                            <option selected>Last 90 days</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="taskDistributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Worker Performance</h2>
+                        <select class="border rounded-md px-3 py-1 text-sm">
+                            <option>CPU Usage</option>
+                            <option selected>Tasks Processed</option>
+                            <option>Memory Usage</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="workerPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h2>
+                <div class="space-y-4">
+                    <div class="flex items-start">
+                        <div class="bg-green-100 p-2 rounded-full mr-3">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">Task #2454 completed successfully</p>
+                            <p class="text-xs text-gray-500">Image Processing - Completed by worker-2</p>
+                            <p class="text-xs text-gray-400 mt-1">10 minutes ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="bg-red-100 p-2 rounded-full mr-3">
+                            <i class="fas fa-exclamation-triangle text-red-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">Task #2453 failed</p>
+                            <p class="text-xs text-gray-500">API Synchronization - Connection timeout</p>
+                            <p class="text-xs text-gray-400 mt-1">1 hour ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="bg-blue-100 p-2 rounded-full mr-3">
+                            <i class="fas fa-plus text-blue-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">New task added to queue</p>
+                            <p class="text-xs text-gray-500">Data Processing Job - Priority: High</p>
+                            <p class="text-xs text-gray-400 mt-1">2 hours ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="bg-yellow-100 p-2 rounded-full mr-3">
+                            <i class="fas fa-server text-yellow-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">Worker-5 went offline</p>
+                            <p class="text-xs text-gray-500">Last heartbeat: 2 hours ago</p>
+                            <p class="text-xs text-gray-400 mt-1">3 hours ago</p>
+                        </div>
+                    </div>
+                </div>
+                <button class="mt-4 text-blue-500 text-sm font-medium">View all activity</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Task Details Modal (hidden by default) -->
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="flex justify-between items-center border-b px-6 py-4">
+                <h3 class="text-lg font-semibold text-gray-800">Task Details</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <p class="text-sm text-gray-500">Task ID</p>
+                        <p class="font-medium">#2456</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Status</p>
+                        <p><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Processing</span></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Created At</p>
+                        <p class="font-medium">2023-06-15 14:30:22</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Started At</p>
+                        <p class="font-medium">2023-06-15 14:31:05</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Priority</p>
+                        <p class="font-medium">High</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Worker</p>
+                        <p class="font-medium">worker-1</p>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <p class="text-sm text-gray-500">Task Name</p>
+                    <p class="font-medium text-lg">Data Processing Job</p>
+                </div>
+                <div class="mb-6">
+                    <p class="text-sm text-gray-500">Description</p>
+                    <p class="font-medium">Process customer data for monthly analytics report. Includes data cleaning, transformation, and aggregation.</p>
+                </div>
+                <div class="mb-6">
+                    <p class="text-sm text-gray-500">Progress</p>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 65%"></div>
+                    </div>
+                    <p class="text-right text-sm text-gray-500 mt-1">65% complete</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button class="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100">Cancel Task</button>
+                    <button class="px-4 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600">View Logs</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            // Task Distribution Chart
+            const taskCtx = document.getElementById('taskDistributionChart').getContext('2d');
+            const taskChart = new Chart(taskCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [
+                        {
+                            label: 'Completed',
+                            data: [120, 190, 170, 210, 230, 156],
+                            backgroundColor: '#10B981',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Failed',
+                            data: [8, 12, 5, 9, 4, 7],
+                            backgroundColor: '#EF4444',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                drawBorder: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end'
+                        }
+                    }
+                }
+            });
+
+            // Worker Performance Chart
+            const workerCtx = document.getElementById('workerPerformanceChart').getContext('2d');
+            const workerChart = new Chart(workerCtx, {
+                type: 'line',
+                data: {
+                    labels: ['worker-1', 'worker-2', 'worker-3', 'worker-4', 'worker-5'],
+                    datasets: [{
+                        label: 'Tasks Processed',
+                        data: [245, 320, 180, 290, 150],
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3B82F6',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                drawBorder: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Modal functionality
+            const modal = document.getElementById('taskModal');
+            const closeModal = document.getElementById('closeModal');
+            const viewButtons = document.querySelectorAll('[class*="fa-eye"]');
+
+            viewButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    modal.classList.remove('hidden');
+                });
+            });
+
+            closeModal.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
